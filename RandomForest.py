@@ -10,44 +10,65 @@ import pandas as pd
 import matplotlib as plt
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
-Total_Sample = pd.read_csv('Total_Sample_n_q.csv')
+Total_Sample = pd.read_csv('Total_Sample_rp_q.csv')
 Total_Sample['DATE'] = pd.to_datetime(Total_Sample['DATE'])
-Train_Sample = Total_Sample[(Total_Sample['DATE'] > '2014/09/01') 
-    & (Total_Sample['DATE'] < '2017/06/01')]
+Train1 = Total_Sample[(Total_Sample['DATE'] > '2013/04/01') 
+    & (Total_Sample['DATE'] < '2016/01/01')]
+Train1 = Train1.drop(['Unnamed: 0'], axis = 1)
 
-Train_Sample = Train_Sample.drop(['Unnamed: 0'], axis = 1)
-Test_Sample = Total_Sample[(Total_Sample['DATE'] > '2017/09/01') 
-    & (Total_Sample['DATE'] < '2017/10/01')]
-
-Test_Sample = Test_Sample.drop(['Unnamed: 0'], axis = 1)
-#print(Test_Sample.head())
+Test1 = Total_Sample[(Total_Sample['DATE'] > '2016/04/01') 
+    & (Total_Sample['DATE'] < '2016/05/01')]
+Test1 = Test1.drop(['Unnamed: 0'], axis = 1)
 
 Feature = ['ROA', 'EP', 'SP', 'BP', 'VOLATILITY', 'DRAWDOWN', 'REV', 'MV', 
            'EV', 'VOLUME', 'EVMV']
 
-Train_Feature = Train_Sample[Feature]
-Train_Target = np.ravel(Train_Sample[['PERFORMANCE']])
+Train1_Feature = Train1[Feature]
+Train1_Target = np.ravel(Train1[['MRP']])
 
-Test_Feature = Test_Sample[Feature]
-Test_Target = np.ravel(Test_Sample[['PERFORMANCE']])
+Test1_Feature = Test1[Feature]
+Test1_Target = np.ravel(Test1[['MRP']])
 
-forest = RandomForestClassifier(n_estimators = 100,
-                                max_depth = 25,
-                                min_samples_split = 50,
+forest1 = RandomForestClassifier(n_estimators = 100,
+                                 min_samples_split = 100,
+                                 min_samples_leaf = 10,
+                                 random_state = 1,oob_score = True)
+
+Classifier1 = forest1.fit(Train1_Feature, Train1_Target)
+Test1_Predict = Classifier1.predict(Test1_Feature)
+
+Test_Class1 = pd.DataFrame({'CLASS1':Test1_Predict}, index = Test1.index)
+Test2 = pd.concat([Test1, Test_Class1], axis=1, join_axes=[Test1.index])
+Test2 = Test2.where(Test2['CLASS1'] == True)
+Test2 = Test2.dropna(axis=0, how='any')
+Test2['TRP'] = Test2['TRP'] == 1
+
+
+Train2_Feature = Train1[Feature]
+Train2_Target = np.ravel(Train1[['TRP']])
+
+Test2_Feature = Test2[Feature]
+Test2_Target = np.ravel(Test2[['TRP']])
+
+forest2 = RandomForestClassifier(n_estimators = 100,
+                                 min_samples_split = 10,
                                 random_state = 1,oob_score = True)
 
-Train_Forest = forest.fit(Train_Feature, Train_Target)
-Predictor_Forest = forest.predict(Test_Feature)
-Predict = pd.DataFrame({'Predict':Predictor_Forest}, index = Test_Sample.index)
-Result = pd.concat([Test_Sample, Predict], axis=1, join_axes=[Test_Sample.index])
-Result.to_csv('Result_n_q_201709.csv')
+Classifier2 = forest2.fit(Train2_Feature, Train2_Target)
+Test2_Predict = Classifier2.predict(Test2_Feature)
+Test_Class2 = pd.DataFrame({'CLASS2':Test2_Predict}, index = Test2.index)
+Result =  pd.concat([Test2, Test_Class2], axis=1, join_axes=[Test2.index])
+Result.to_csv('Result_n_rp_201604.csv')
 
 
-print(Train_Forest.score(Train_Feature, Train_Target))
-print(forest.oob_score_)
-print(Train_Forest.score(Test_Feature, Test_Target))
-print('  ')
-
-importance = Train_Forest.feature_importances_
+print(Classifier1.score(Train1_Feature, Train1_Target))
+print(forest1.oob_score_)
+print(Classifier1.score(Test1_Feature, Test1_Target))
+print(' ')
+print(Classifier2.score(Train2_Feature, Train2_Target))
+print(forest2.oob_score_)
+print(Classifier2.score(Test2_Feature, Test2_Target))
+print(' ')
+importance = Classifier2.feature_importances_
 for i in range(0,11):
     print(importance[i])
